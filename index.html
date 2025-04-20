@@ -72,10 +72,20 @@
     #auth input {
       margin: 0.5rem;
     }
+
+    #error-log {
+      background: #ff4444;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <header>ChatApp Oscuro</header>
+
+  <div id="error-log"></div>
 
   <div id="auth">
     <input type="email" id="email" placeholder="Correo" />
@@ -93,22 +103,22 @@
     </form>
   </div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"></script>
+  <!-- Firebase SDKs v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
   <script>
     // Configuración de Firebase
-  const firebaseConfig = {
-  apiKey: "AIzaSyAGiell0jD27-tFmUQp5xCJHy2ZYWT4JPQ",
-  authDomain: "funnicord.firebaseapp.com",
-  projectId: "funnicord",
-  storageBucket: "funnicord.firebasestorage.app",
-  messagingSenderId: "384022913299",
-  appId: "1:384022913299:web:9e2c6734865baec5dfbae6",
-  measurementId: "G-ELXRZLZHBS"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGiell0jD27-tFmUQp5xCJHy2ZYWT4JPQ",
+      authDomain: "funnicord.firebaseapp.com",
+      projectId: "funnicord",
+      storageBucket: "funnicord.appspot.com",
+      messagingSenderId: "384022913299",
+      appId: "1:384022913299:web:9e2c6734865baec5dfbae6",
+      measurementId: "G-ELXRZLZHBS"
+    };
 
     firebase.initializeApp(firebaseConfig);
 
@@ -121,18 +131,24 @@
     const chatBox = document.getElementById('chat');
     const authBox = document.getElementById('auth');
 
+    function mostrarErrorEnPantalla(error) {
+      const errorDiv = document.getElementById('error-log');
+      errorDiv.textContent = error;
+      errorDiv.style.display = 'block';
+    }
+
     function signUp() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       auth.createUserWithEmailAndPassword(email, password)
-        .catch(error => alert(error.message));
+        .catch(error => mostrarErrorEnPantalla(error.message));
     }
 
     function signIn() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       auth.signInWithEmailAndPassword(email, password)
-        .catch(error => alert(error.message));
+        .catch(error => mostrarErrorEnPantalla(error.message));
     }
 
     function signOut() {
