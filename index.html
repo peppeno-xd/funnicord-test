@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatApp Oscuro</title>
+  <style>
+    body {
+      background-color: #1e1e2f;
+      color: #fff;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #29293d;
+      padding: 1rem;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 0;
+    }
+
+    #messages li {
+      margin-bottom: 10px;
+      padding: 8px;
+      background: #2e2e40;
+      border-radius: 8px;
+    }
+
+    form {
+      display: flex;
+      padding: 1rem;
+      background: #29293d;
+    }
+
+    input, button {
+      padding: 0.5rem;
+      margin: 0 0.5rem;
+      border: none;
+      border-radius: 5px;
+    }
+
+    input {
+      flex: 1;
+    }
+
+    button {
+      background-color: #4f46e5;
+      color: white;
+      cursor: pointer;
+    }
+
+    #auth {
+      padding: 1rem;
+      text-align: center;
+    }
+
+    #auth input {
+      margin: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>ChatApp Oscuro</header>
+
+  <div id="auth">
+    <input type="email" id="email" placeholder="Correo" />
+    <input type="password" id="password" placeholder="Contraseña" />
+    <button onclick="signUp()">Registrarse</button>
+    <button onclick="signIn()">Entrar</button>
+    <button onclick="signOut()">Salir</button>
+  </div>
+
+  <div id="chat" style="display: none;">
+    <ul id="messages"></ul>
+    <form id="message-form">
+      <input type="text" id="message-input" placeholder="Escribe algo..." />
+      <button type="submit">Enviar</button>
+    </form>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"></script>
+
+  <script>
+    // Configuración de Firebase
+  const firebaseConfig = {
+  apiKey: "AIzaSyAGiell0jD27-tFmUQp5xCJHy2ZYWT4JPQ",
+  authDomain: "funnicord.firebaseapp.com",
+  projectId: "funnicord",
+  storageBucket: "funnicord.firebasestorage.app",
+  messagingSenderId: "384022913299",
+  appId: "1:384022913299:web:9e2c6734865baec5dfbae6",
+  measurementId: "G-ELXRZLZHBS"
+};
+
+    firebase.initializeApp(firebaseConfig);
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const messagesList = document.getElementById('messages');
+    const chatBox = document.getElementById('chat');
+    const authBox = document.getElementById('auth');
+
+    function signUp() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .catch(error => alert(error.message));
+    }
+
+    function signIn() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(error => alert(error.message));
+    }
+
+    function signOut() {
+      auth.signOut();
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        authBox.style.display = 'none';
+        chatBox.style.display = 'flex';
+        listenForMessages();
+      } else {
+        authBox.style.display = 'block';
+        chatBox.style.display = 'none';
+      }
+    });
+
+    messageForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (text !== '') {
+        db.collection('messages').add({
+          text,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          user: auth.currentUser.email
+        });
+        messageInput.value = '';
+      }
+    });
+
+    function listenForMessages() {
+      db.collection('messages')
+        .orderBy('timestamp')
+        .onSnapshot(snapshot => {
+          messagesList.innerHTML = '';
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const li = document.createElement('li');
+            li.textContent = `${data.user}: ${data.text}`;
+            messagesList.appendChild(li);
+          });
+          messagesList.scrollTop = messagesList.scrollHeight;
+        });
+    }
+  </script>
+</body>
+</html>
