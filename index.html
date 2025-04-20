@@ -73,29 +73,58 @@
       margin: 0.5rem;
     }
 
-    #error-log {
-      background: #ff4444;
-      color: white;
-      padding: 10px;
-      text-align: center;
-      display: none;
+    #spaces-list {
+      padding: 1rem;
+      background-color: #29293d;
+    }
+
+    #channels-list {
+      margin-top: 1rem;
+    }
+
+    .channel {
+      margin: 0.5rem 0;
+      cursor: pointer;
+      background-color: #4f46e5;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .active {
+      background-color: #2e2e40;
+    }
+
+    #create-space {
+      margin-bottom: 1rem;
     }
   </style>
 </head>
 <body>
   <header>ChatApp Oscuro</header>
 
-  <div id="error-log"></div>
+  <!-- Sección para crear espacio -->
+  <div id="create-space">
+    <input type="text" id="space-name" placeholder="Nombre del espacio" />
+    <input type="text" id="space-description" placeholder="Descripción (opcional)" />
+    <button onclick="createSpace()">Crear Espacio</button>
+  </div>
 
+  <!-- Sección de espacios -->
+  <div id="spaces-list"></div>
+
+  <!-- Sección de autenticación -->
   <div id="auth">
     <input type="email" id="email" placeholder="Correo" />
     <input type="password" id="password" placeholder="Contraseña" />
+    <input type="text" id="nickname" placeholder="Apodo" />
     <button onclick="signUp()">Registrarse</button>
     <button onclick="signIn()">Entrar</button>
     <button onclick="signOut()">Salir</button>
   </div>
 
+  <!-- Sección de chat -->
   <div id="chat" style="display: none;">
+    <div id="channels-list"></div>
     <ul id="messages"></ul>
     <form id="message-form">
       <input type="text" id="message-input" placeholder="Escribe algo..." />
@@ -103,10 +132,10 @@
     </form>
   </div>
 
-  <!-- Firebase SDKs v8 -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"></script>
 
   <script>
     // Configuración de Firebase
@@ -114,7 +143,7 @@
       apiKey: "AIzaSyAGiell0jD27-tFmUQp5xCJHy2ZYWT4JPQ",
       authDomain: "funnicord.firebaseapp.com",
       projectId: "funnicord",
-      storageBucket: "funnicord.appspot.com",
+      storageBucket: "funnicord.firebasestorage.app",
       messagingSenderId: "384022913299",
       appId: "1:384022913299:web:9e2c6734865baec5dfbae6",
       measurementId: "G-ELXRZLZHBS"
@@ -130,69 +159,147 @@
     const messagesList = document.getElementById('messages');
     const chatBox = document.getElementById('chat');
     const authBox = document.getElementById('auth');
+    const spacesList = document.getElementById('spaces-list');
+    const channelsList = document.getElementById('channels-list');
 
-    function mostrarErrorEnPantalla(error) {
-      const errorDiv = document.getElementById('error-log');
-      errorDiv.textContent = error;
-      errorDiv.style.display = 'block';
-    }
-
+    // Función para registrarse
     function signUp() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      const nickname = document.getElementById('nickname').value;
+
       auth.createUserWithEmailAndPassword(email, password)
-        .catch(error => mostrarErrorEnPantalla(error.message));
+        .then(cred => {
+          return db.collection('users').doc(cred.user.uid).set({
+            nickname: nickname
+          });
+        })
+        .catch(error => alert(error.message));
     }
 
+    // Función para iniciar sesión
     function signIn() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       auth.signInWithEmailAndPassword(email, password)
-        .catch(error => mostrarErrorEnPantalla(error.message));
+        .catch(error => alert(error.message));
     }
 
+    // Función para cerrar sesión
     function signOut() {
       auth.signOut();
     }
 
+    // Mostrar espacios disponibles
+    function loadSpaces() {
+      db.collection('espacios').get()
+        .then(snapshot => {
+          spacesList.innerHTML = '';  // Limpiar lista de espacios
+
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const spaceDiv = document.createElement('div');
+            spaceDiv.textContent = `${data.nombre}: ${data.descripcion}`;
+            const joinButton = document.createElement('button');
+            joinButton.textContent = 'Unirse';
+            joinButton.onclick = () => joinSpace(doc.id);
+            spaceDiv.appendChild(joinButton);
+            spacesList.appendChild(spaceDiv);
+          });
+        })
+        .catch(error => console.error("Error al cargar espacios: ", error));
+    }
+
+    // Unirse a un espacio
+    function joinSpace(spaceId) {
+      const userId = auth.currentUser.uid;
+
+      db.collection('espacios').doc(spaceId).update({
+        usuarios: firebase.firestore.FieldValue.arrayUnion(userId)
+      })
+      .then(() => {
+        console.log("Usuario unido al espacio");
+        loadChannels(spaceId);  // Cargar los canales de ese espacio
+      })
+      .catch(error => console.error("Error al unirse al espacio: ", error));
+    }
+
+    // Crear un espacio
+    function createSpace() {
+      const spaceName = document.getElementById('space-name').value;
+      const spaceDescription = document.getElementById('space-description').value;
+
+      db.collection('espacios').add({
+        nombre: spaceName,
+        descripcion: spaceDescription,
+        canales: ["general", "memes", "random"],
+        usuarios: [auth.currentUser.uid]  // El usuario actual es el creador
+      })
+      .then(docRef => {
+        console.log("Espacio creado con ID: ", docRef.id);
+        loadSpaces();  // Recargar la lista de espacios
+      })
+      .catch(error => console.error("Error al crear espacio: ", error));
+    }
+
+    // Cargar canales de un espacio
+    function loadChannels(spaceId) {
+      db.collection('espacios').doc(spaceId).get()
+        .then(doc => {
+          const data = doc.data();
+          const channelsList = data.canales;
+          channelsList.innerHTML = '';
+          
+          channelsList.forEach(channel => {
+            const channelDiv = document.createElement('div');
+            channelDiv.classList.add('channel');
+            channelDiv.textContent = `#${channel}`;
+            channelDiv.onclick = () => loadMessages(spaceId, channel);
+            channelsList.appendChild(channelDiv);
+          });
+        })
+        .catch(error => console.error("Error al cargar canales: ", error));
+    }
+
+    // Cargar mensajes de un canal
+    function loadMessages(spaceId, channel) {
+      const messagesList = document.getElementById('messages');
+      messagesList.innerHTML = '';
+
+      db.collection('mensajes').doc(spaceId).collection(channel)
+        .orderBy('timestamp')
+        .onSnapshot(snapshot => {
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const li = document.createElement('li');
+            li.textContent = `${data.usuario}: ${data.texto}`;
+            messagesList.appendChild(li);
+          });
+        });
+    }
+
+    // Mostrar contenido según el estado de autenticación
     auth.onAuthStateChanged(user => {
       if (user) {
         authBox.style.display = 'none';
         chatBox.style.display = 'flex';
-        listenForMessages();
+        loadSpaces();  // Cargar espacios disponibles
       } else {
         authBox.style.display = 'block';
         chatBox.style.display = 'none';
       }
     });
 
-    messageForm.addEventListener('submit', e => {
+    // Enviar un mensaje
+    messageForm.addEventListener('submit', async e => {
       e.preventDefault();
       const text = messageInput.value.trim();
-      if (text !== '') {
-        db.collection('messages').add({
-          text,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          user: auth.currentUser.email
-        });
-        messageInput.value = '';
-      }
-    });
+      const currentChannel = document.querySelector('#channels-list .active')?.textContent?.substring(1);
 
-    function listenForMessages() {
-      db.collection('messages')
-        .orderBy('timestamp')
-        .onSnapshot(snapshot => {
-          messagesList.innerHTML = '';
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            const li = document.createElement('li');
-            li.textContent = `${data.user}: ${data.text}`;
-            messagesList.appendChild(li);
-          });
-          messagesList.scrollTop = messagesList.scrollHeight;
-        });
-    }
-  </script>
-</body>
-</html>
+      if (text !== '' && currentChannel) {
+        const uid = auth.currentUser.uid;
+        const userDoc = await db.collection('users').doc(uid).get();
+        const nickname = userDoc.exists ? userDoc.data().nickname : auth.currentUser.email;
+
+        db.collection('mensajes').doc(spaceId).collection(currentChannel).add({
+          texto: text,
